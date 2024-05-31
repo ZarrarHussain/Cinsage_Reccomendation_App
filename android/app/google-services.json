@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "763758955069",
+    "project_id": "cinsage-bfe68",
+    "storage_bucket": "cinsage-bfe68.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:763758955069:android:623b1a1366264460ae7854",
+        "android_client_info": {
+          "package_name": "com.z.cinsage.cinsage"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCz9DoOvydxXQ1_4dTMaU_lItUcJjF00Wo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
