@@ -27,6 +27,13 @@ class _SurveyPageState extends State<SurveyPage> {
     "Anime"
   ];
   List<String> selectedGenres = [];
+  late BuildContext _scaffoldContext;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scaffoldContext = context;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,17 +62,16 @@ class _SurveyPageState extends State<SurveyPage> {
                           if (selectedGenres.length < 5) {
                             selectedGenres.add(genres[index]);
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      "You can select up to 5 genres."),
-                                ));
+                            ScaffoldMessenger.of(_scaffoldContext).showSnackBar(
+                              const SnackBar(
+                                content: Text("You can select up to 5 genres."),
+                              ),
+                            );
                           }
                         }
                       });
                     },
                     child: Container(
-
                       decoration: BoxDecoration(
                         color: selectedGenres.contains(genres[index])
                             ? Colors.blueAccent
@@ -99,20 +105,19 @@ class _SurveyPageState extends State<SurveyPage> {
 
   void _submitGenres() async {
     if (selectedGenres.length < 3 || selectedGenres.length > 5) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      ScaffoldMessenger.of(_scaffoldContext).showSnackBar(const SnackBar(
         content: Text("Please select between 3 and 5 genres."),
       ));
       return;
     }
 
     showDialog(
-      context: context,
+      context: _scaffoldContext,
       barrierDismissible: false, // Prevent dialog dismissal by tapping outside
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("Confirm Submission"),
-          content: const Text(
-              "Are you sure you want to submit your selected genres?"),
+          content: const Text("Are you sure you want to submit your selected genres?"),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -121,30 +126,28 @@ class _SurveyPageState extends State<SurveyPage> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop(); // Dismiss the dialog first
+
                 try {
                   User? user = FirebaseAuth.instance.currentUser;
                   if (user != null) {
                     print("User ID: ${user.uid}");
-                    await _database.child("users/${user.uid}/genres").set(
-                        selectedGenres);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    await _database.child("users/${user.uid}/genres").set(selectedGenres);
+                    ScaffoldMessenger.of(_scaffoldContext).showSnackBar(const SnackBar(
                       content: Text("Genres saved successfully!"),
                     ));
                     // Navigate to MovieListScreen after genres have been saved
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const MovieListScreen()),
+                    Navigator.of(_scaffoldContext).pushReplacement(
+                      MaterialPageRoute(builder: (context) => const MovieListScreen()),
                     );
                   } else {
                     // Show snackbar if user is not logged in
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    ScaffoldMessenger.of(_scaffoldContext).showSnackBar(const SnackBar(
                       content: Text("User not logged in."),
                     ));
                   }
                 } catch (error) {
                   print("Error saving genres: $error");
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  ScaffoldMessenger.of(_scaffoldContext).showSnackBar(const SnackBar(
                     content: Text("Failed to save genres."),
                   ));
                 }

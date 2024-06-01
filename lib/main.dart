@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cinsage/Chat.dart';
+import 'package:cinsage/Survey.dart';
 import 'package:cinsage/accounts.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -184,90 +185,65 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       context: context,
       isScrollControlled: true,
       builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Text(
-                    'Filter Options',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Text(
+                        'Filter Options',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
+                    SizedBox(height: 16),
+                    _buildGenresFilter(setState),
+                    SizedBox(height: 16),
+                    _buildReleaseDateFilter(context),
+                    SizedBox(height: 16),
+                    _buildLanguageFilter(setState),
+                    SizedBox(height: 16),
+                    _buildRatingFilter(setState),
+                    SizedBox(height: 24),
+                    Center(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Apply the filters and close the modal
+                          widget.onApplyFilters(
+                            selectedGenres,
+                            selectedReleaseDate,
+                            selectedLanguage,
+                            selectedRating,
+                          );
+                          Navigator.pop(context); // Close the Filters menu
+                        },
+                        child: Text(
+                          'Apply Filters',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                          textStyle: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 16),
-                _buildGenresFilter(),
-                SizedBox(height: 16),
-                _buildReleaseDateFilter(context),
-                SizedBox(height: 16),
-                _buildLanguageFilter(),
-                SizedBox(height: 16),
-                _buildRatingFilter(),
-                SizedBox(height: 24),
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Apply the filters and close the modal
-                      widget.onApplyFilters(
-                        selectedGenres,
-                        selectedReleaseDate,
-                        selectedLanguage,
-                        selectedRating,
-                      );
-                      Navigator.pop(context); // Close the Filters menu
-                    },
-                    child: Text(
-                      'Apply Filters',
-                      style: TextStyle(color: Colors.black),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                      textStyle: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
   }
-
-  Widget _buildGenresFilter() {
-    // Replace with your actual genres
-    final genres = ['Action', 'Comedy', 'Drama', 'Horror', 'Romance', 'Sci-Fi'];
-
-    return Wrap(
-      spacing: 8.0,
-      runSpacing: 4.0,
-      children: genres.map((genre) {
-        final isSelected = selectedGenres.contains(genre);
-        return FilterChip(
-          label: Text(genre),
-          selected: isSelected,
-          onSelected: (bool selected) {
-            setState(() {
-              if (selected) {
-                selectedGenres.add(genre);
-              } else {
-                selectedGenres.removeWhere((String name) {
-                  return name == genre;
-                });
-              }
-            });
-          },
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildReleaseDateFilter(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -290,9 +266,34 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildLanguageFilter() {
-    // Replace with your actual languages
-    final languages = ['English', 'Spanish', 'French', 'German', 'Chinese'];
+  Widget _buildGenresFilter(StateSetter setState) {
+    final genres = ['Action', 'Comedy', 'Drama', 'Horror', 'Romance', 'Sci-Fi'];
+
+    return Wrap(
+      spacing: 8.0,
+      runSpacing: 4.0,
+      children: genres.map((genre) {
+        final isSelected = selectedGenres.contains(genre);
+        return FilterChip(
+          label: Text(genre),
+          selected: isSelected,
+          selectedColor: Colors.blue,
+          onSelected: (bool selected) {
+            setState(() {
+              if (selected) {
+                selectedGenres.add(genre);
+              } else {
+                selectedGenres.remove(genre);
+              }
+            });
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildLanguageFilter(StateSetter setState) {
+    final languages = ['English', 'Urdu'];
 
     return DropdownButtonFormField<String>(
       value: selectedLanguage,
@@ -314,7 +315,7 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildRatingFilter() {
+  Widget _buildRatingFilter(StateSetter setState) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -325,7 +326,7 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
         SizedBox(height: 8),
         Row(
           children: [
-            for (int i = 1; i <= 5; i++)
+            for (int i = 1; i <= 10; i++)
               GestureDetector(
                 onTap: () {
                   setState(() {
@@ -347,6 +348,7 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       ],
     );
   }
+
 
 
 

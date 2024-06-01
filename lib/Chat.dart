@@ -1,8 +1,11 @@
+import 'package:cinsage/login.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+
+import 'main.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -19,12 +22,23 @@ class _ChatPageState extends State<ChatPage> {
   String _senderName = '';
   String _currentRoom = '';
   List<ChatRoomTile> chatRoomTiles = [];
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
-    _getSenderName();
-    _fetchChatRooms();
+    _checkLoginStatus();
+  }
+
+  void _checkLoginStatus() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        _isLoggedIn = true;
+      });
+      _getSenderName();
+      _fetchChatRooms();
+    }
   }
 
   void _getSenderName() async {
@@ -173,6 +187,13 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  void _navigateToLogin() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) =>  LoginScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -181,11 +202,12 @@ class _ChatPageState extends State<ChatPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: _createChatRoom,
+            onPressed: _isLoggedIn ? _createChatRoom : _navigateToLogin,
           ),
         ],
       ),
-      body: Column(
+      body: _isLoggedIn
+          ? Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -207,6 +229,19 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ],
+      )
+          : Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Please login to chat'),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _navigateToLogin,
+              child: const Text('Login'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -439,3 +474,5 @@ class MessageBubble extends StatelessWidget {
     );
   }
 }
+
+

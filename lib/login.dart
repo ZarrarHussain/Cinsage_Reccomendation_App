@@ -75,7 +75,7 @@ class LoginScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Login')),
       body: SingleChildScrollView(
         child: Container(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(10.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
@@ -224,21 +224,29 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 50),
-              FadeInUp(
-                duration: const Duration(milliseconds: 500),
-                child: const Text("Forgot Password?", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1))),
+              const SizedBox(height: 20),
+              Row(
+
+                children: [
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 500),
+                    child: const Text("Forgot Password?", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1))),
+                  ),
+                  SizedBox(
+                    width:125,
+                  ),
+                  FadeInUp(
+                    duration: const Duration(milliseconds: 500),
+                    child: TextButton( onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => SignUpScreen()),
+                      );
+                    }, child: const Text("not a user? sign-up", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1)),),),
+                  ),
+                ],
               ),
-              const SizedBox(height: 50),
-              FadeInUp(
-                duration: const Duration(milliseconds: 500),
-                child: TextButton( onPressed: () {
-                  Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => SignUpScreen()),
-                );
-                  }, child: const Text("not a user? sign-up", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1)),),),
-              ),
+
             ],
           ),
         ),
