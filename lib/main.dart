@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cinsage/Chat.dart';
+import 'package:cinsage/SearchDetails.dart';
 import 'package:cinsage/Survey.dart';
 import 'package:cinsage/accounts.dart';
+import 'package:csv/csv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
@@ -1117,21 +1120,51 @@ class _MovieDetailsScreenState extends State<MovieDetailsScreen> {
   }
 }
 
-class MovieSearchDelegate extends SearchDelegate {
-  final String apiKey = '2739efeaf44f3e2a44571898f5523c92';
-  final Uri apiUrl = Uri.parse('https://api.themoviedb.org/3/search/multi');
 
+
+class MovieSearchDelegate extends SearchDelegate {
   final List<String> selectedGenres;
   final DateTime? selectedReleaseDate;
   final String? selectedLanguage;
   final double? selectedRating;
+  List<Map<String, dynamic>> movies = [];
+  bool isCsvLoaded = false;
 
   MovieSearchDelegate({
     required this.selectedGenres,
     required this.selectedReleaseDate,
     required this.selectedLanguage,
     required this.selectedRating,
-  });
+  }) {
+    _loadCSV();
+  }
+
+  Future<void> _loadCSV() async {
+    final csvData = await rootBundle.loadString('assets/movies.csv');
+    List<List<dynamic>> csvTable = CsvToListConverter().convert(csvData);
+
+    movies = csvTable.skip(1).map<Map<String, dynamic>>((row) {
+      try {
+        return {
+          'title': row[2].toString(),
+          'genres': row[3].toString().split(','),
+          'release_date': row[4].toString(),
+          'language': row[5].toString(),
+          'rating': double.tryParse(row[6].toString()),
+          'overview': row[7].toString(),
+          'poster_url': row[10].toString(),
+
+
+
+
+        };
+      } catch (e) {
+        return {};
+      }
+    }).toList();
+
+    isCsvLoaded = true;
+  }
 
   @override
   List<Widget> buildActions(BuildContext context) {
@@ -1140,6 +1173,7 @@ class MovieSearchDelegate extends SearchDelegate {
         icon: const Icon(Icons.clear),
         onPressed: () {
           query = '';
+          showSuggestions(context);
         },
       ),
     ];
@@ -1162,354 +1196,48 @@ class MovieSearchDelegate extends SearchDelegate {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return FutureBuilder(
-      future: fetchSearchResults(query, selectedGenres, selectedReleaseDate, selectedLanguage, selectedRating),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const CircularProgressIndicator();
-        } else if (snapshot.hasError) {
-          return Text('Error: ${snapshot.error}');
-        } else if (!snapshot.hasData || snapshot.data == null) {
-          return const Text('No results found');
-        } else {
-          List<dynamic> searchResults = snapshot.data as List<dynamic>;
+    if (!isCsvLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-          return ListView.builder(
-            itemCount: searchResults.length,
-            itemBuilder: (context, index) {
-              final result = searchResults[index];
-              final title = result['title'] ?? result['name'];
-              final rating = result['rating'];
+    final filteredMovies = fetchSearchResults(query);
 
-              return ListTile(
-                title: Text(title),
-                onTap: () {
-                  // Navigate to the details screen with rating
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MovieDetailsScreen(
-                        title: title,
-                        posterUrl: 'https://image.tmdb.org/t/p/w185/${result['poster_path']}',
-                        releaseDate: result['release_date'] ?? '',
-                        overview: result['overview'] ?? 'No overview available.',
-                        rating: rating,
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        }
+    return filteredMovies.isEmpty
+        ? const Center(child: Text('No results found'))
+        : ListView.builder(
+      itemCount: filteredMovies.length,
+      itemBuilder: (context, index) {
+        final movie = filteredMovies[index];
+        final title = movie['title'];
+        final rating = movie['rating'];
+
+        return ListTile(
+          title: Text(title),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MovieDetailsScreen(
+                  title: title,
+                  posterUrl: movie['poster_url'],
+                  releaseDate: movie['release_date'],
+                  overview: movie['overview'],
+                  rating: rating,
+                ),
+              ),
+            );
+          },
+        );
       },
     );
   }
 
-  Future<List<dynamic>> fetchSearchResults(String query, List<String> selectedGenres, DateTime? selectedReleaseDate, String? selectedLanguage, double? selectedRating) async {
-    final response = await http.get(apiUrl.replace(queryParameters: {
-      'api_key': apiKey,
-      'query': query,
-      // Add filter parameters to the API request
-      'with_genres': selectedGenres.isNotEmpty ? selectedGenres.join(',') : null,
-      'release_date.gte': selectedReleaseDate?.toIso8601String(),
-      'language': selectedLanguage,
-      'vote_average.gte': selectedRating?.toString(),
-    }));
-
-    if (response.statusCode == 200) {
-      List<dynamic> searchResults = json.decode(response.body)['results'];
-
-      // Fetch ratings for each search result
-      for (var result in searchResults) {
-        String type = result['media_type'] ?? 'movie'; // Default to movie if media_type is null
-        int id = result['id'];
-
-        final ratingResponse = await http.get(Uri.parse('https://api.themoviedb.org/3/$type/$id?api_key=$apiKey'));
-        if (ratingResponse.statusCode == 200) {
-          result['rating'] = json.decode(ratingResponse.body)['vote_average'];
-        } else {
-          result['rating'] = null;
-        }
-      }
-
-      return searchResults;
-    } else {
-      // Handle errors
-      print('Failed to load search results');
-      return [];
-    }
-  }
-
-}
-
-class FiltersMenu extends StatefulWidget {
-  final List<String> selectedGenres;
-  late final DateTime? selectedReleaseDate;
-  late final String? selectedLanguage;
-  late final double? selectedRating;
-  final Function(List<String>, DateTime?, String?, double?) onApplyFilters;
-
-   FiltersMenu({super.key,
-    required this.selectedGenres,
-    required this.selectedReleaseDate,
-    required this.selectedLanguage,
-    required this.selectedRating,
-    required this.onApplyFilters,
-  });
-
-  @override
-  _FiltersMenuState createState() => _FiltersMenuState();
-}
-
-class _FiltersMenuState extends State<FiltersMenu> {
-  late List<String> availableGenres = ['Action', 'Drama', 'Comedy', 'Sci-Fi']; // Replace with actual genre list
-  late TextEditingController _dateController;
-  double _ratingSliderValue = 5.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _dateController = TextEditingController();
-    if (widget.selectedReleaseDate != null) {
-      _dateController.text = DateFormat('yyyy-MM-dd').format(widget.selectedReleaseDate!);
-    }
-    if (widget.selectedRating != null) {
-      _ratingSliderValue = widget.selectedRating!;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-
-          DropdownButton<String>(
-            value: widget.selectedGenres.isNotEmpty ? widget.selectedGenres[0] : null,
-            onChanged: (String? newValue) {
-              setState(() {
-                widget.selectedGenres.clear();
-                if (newValue != null) {
-                  widget.selectedGenres.add(newValue);
-                }
-              });
-            },
-            items: availableGenres.map((String genre) {
-              return DropdownMenuItem<String>(
-                value: genre,
-                child: Text(genre),
-              );
-            }).toList(),
-            hint: const Text('Select Genre',style: TextStyle(color: Colors.white)),
-          ),
-          const SizedBox(height: 16),
-          DropdownButton<int>(
-            value: widget.selectedReleaseDate?.year,
-            onChanged: (int? newValue) {
-              if (newValue != null) {
-                setState(() {
-                  widget.selectedReleaseDate = DateTime(newValue);
-                  _dateController.text = newValue.toString();
-                });
-              }
-            },
-            items: getReleaseYearDropdownItems(),
-            hint: const Text('Select Release Year',style:TextStyle(color: Colors.white)),
-          ),
-          const SizedBox(height: 16),
-          DropdownButton<String>(
-            value: widget.selectedLanguage,
-            onChanged: (String? newValue) {
-              setState(() {
-                widget.selectedLanguage = newValue;
-              });
-            },
-            items: ['English', 'Spanish', 'French', 'German'] // Replace with actual language list
-                .map((String language) {
-              return DropdownMenuItem<String>(
-                value: language,
-                child: Text(language),
-              );
-            }).toList(),
-            hint: const Text('Select Language',style: TextStyle(color: Colors.white)),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Select Rating: ${_ratingSliderValue.toStringAsFixed(1)}'),
-              Slider(
-                value: _ratingSliderValue,
-                min: 0,
-                max: 10,
-                divisions: 10,
-                onChanged: (double value) {
-                  setState(() {
-                    _ratingSliderValue = value;
-                  });
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () async {
-              // Ensure at least one filter is selected before calling fetchFilteredResults
-              if (widget.selectedGenres.isNotEmpty ||
-                  widget.selectedReleaseDate != null ||
-                  widget.selectedLanguage != null ||
-                  widget.selectedRating != null) {
-                List<dynamic> results = await fetchFilteredResults();
-
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SearchResultScreen(searchResults: results),
-                  ),
-                );
-              }
-            },
-            child: const Text('Apply Filters'),
-          ),
-        ],
-      ),
-    );
-
-
-  }
-  List<DropdownMenuItem<int>> getReleaseYearDropdownItems() {
-    // Generate a list of years from 2000 to 2024
-    List<int> years = List.generate(25, (index) => 2000 + index);
-
-    return years.map((year) {
-      return DropdownMenuItem<int>(
-        value: year,
-        child: Text(year.toString()),
-      );
+  List<Map<String, dynamic>> fetchSearchResults(String query) {
+    return movies.where((movie) {
+      return movie['title'].toString().toLowerCase().contains(query.toLowerCase());
     }).toList();
   }
-  Future<List<dynamic>> fetchFilteredResults() async {
-    const String apiKey = '2739efeaf44f3e2a44571898f5523c92';
-    final Uri apiUrl = Uri.parse('https://api.themoviedb.org/3/discover/movie');
-
-    Map<String, dynamic> queryParameters = {
-      'api_key': apiKey,
-    };
-
-    // Add filters to query parameters if they are selected
-    if (widget.selectedGenres.isNotEmpty) {
-      queryParameters['with_genres'] = widget.selectedGenres.join(',');
-    }
-
-    if (widget.selectedReleaseDate != null) {
-      queryParameters['primary_release_year'] = widget.selectedReleaseDate!.year.toString();
-    }
-
-    if (widget.selectedLanguage != null) {
-      queryParameters['language'] = widget.selectedLanguage!;
-    }
-
-    if (widget.selectedRating != null) {
-      queryParameters['vote_average.gte'] = widget.selectedRating!.toString();
-    }
-
-    final response = await http.get(apiUrl.replace(queryParameters: queryParameters));
-
-    if (response.statusCode == 200) {
-      List<dynamic> searchResults = json.decode(response.body)['results'];
-
-      // Fetch ratings for each search result
-      for (var result in searchResults) {
-        String type = 'movie'; // You are specifically searching for movies
-        int id = result['id'];
-
-        final ratingResponse = await http.get(Uri.parse('https://api.themoviedb.org/3/$type/$id?api_key=$apiKey'));
-        if (ratingResponse.statusCode == 200) {
-          result['rating'] = json.decode(ratingResponse.body)['vote_average'];
-        } else {
-          result['rating'] = null;
-        }
-      }
-
-      return searchResults;
-    } else {
-      // Handle errors
-      print('Failed to load filtered results');
-      print('Response Code: ${response.statusCode}');
-      return [];
-    }
-  }
-
-
-
 }
-class SearchResultScreen extends StatelessWidget {
-  final List<dynamic> searchResults;
 
-  const SearchResultScreen({super.key, required this.searchResults});
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Search Results'),
-      ),
-      body: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, // You can adjust the number of columns as needed
-          crossAxisSpacing: 8.0,
-          mainAxisSpacing: 8.0,
-        ),
-        itemCount: searchResults.length,
-        itemBuilder: (context, index) {
-          // Build your UI for each search result here
-          // You can use a similar approach as in the MovieDetailsScreen
-          final result = searchResults[index];
 
-          return GestureDetector(
-            onTap: () {
-              // Handle the tap on the grid item, e.g., navigate to details screen
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MovieDetailsScreen(
-                    title: result['title'] ?? result['name'] ?? 'N/A',
-                    posterUrl: 'https://image.tmdb.org/t/p/w185/${result['poster_path']}',
-                    releaseDate: result['release_date'] ?? '',
-                    overview: result['overview'] ?? 'No overview available.',
-                    rating: result['rating']?.toDouble(),
-                  ),
-                ),
-              );
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8.0),
-                image: DecorationImage(
-                  image: NetworkImage('https://image.tmdb.org/t/p/w185/${result['poster_path']}'),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(
-                    result['title'] ?? result['name'] ?? 'N/A',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}

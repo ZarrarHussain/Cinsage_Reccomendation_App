@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import 'main.dart';
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({super.key});
+  const ChatPage({Key? key});
 
   @override
   _ChatPageState createState() => _ChatPageState();
@@ -47,8 +47,7 @@ class _ChatPageState extends State<ChatPage> {
       DatabaseReference userRef = _database.child('users').child(userId).child('user_name');
       try {
         DatabaseEvent event = await userRef.once();
-        DataSnapshot snapshot = event.snapshot;
-        setState(() {
+        DataSnapshot snapshot = event.snapshot;        setState(() {
           _senderName = snapshot.value as String? ?? 'Unknown';
         });
       } catch (error) {
@@ -102,7 +101,6 @@ class _ChatPageState extends State<ChatPage> {
       try {
         DatabaseEvent event = await userRef.once();
         DataSnapshot snapshot = event.snapshot;
-
         if (snapshot.value != null) {
           Navigator.of(context).push(
             MaterialPageRoute(
@@ -252,7 +250,7 @@ class ChatRoomTile extends StatelessWidget {
   final String roomName;
   final VoidCallback onTap;
 
-  const ChatRoomTile({super.key, required this.roomId, required this.roomName, required this.onTap});
+  const ChatRoomTile({Key? key, required this.roomId, required this.roomName, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -266,14 +264,15 @@ class ChatRoomTile extends StatelessWidget {
   }
 }
 
-class ChatRoomPage extends StatefulWidget {
+class ChatRoomPage extends StatefulWidget
+{
   final String roomId;
   final String roomName;
   final String senderName;
   final DatabaseReference database;
 
   const ChatRoomPage({
-    super.key,
+    Key? key,
     required this.roomId,
     required this.roomName,
     required this.senderName,
@@ -287,6 +286,7 @@ class ChatRoomPage extends StatefulWidget {
 class _ChatRoomPageState extends State<ChatRoomPage> {
   final TextEditingController _controller = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String _senderName = '';
 
   void _leaveChatRoom(String roomId) {
     String? userId = FirebaseAuth.instance.currentUser?.uid;
@@ -313,6 +313,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     }
   }
 
+
+
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -323,6 +328,7 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
             icon: const Icon(Icons.exit_to_app),
             onPressed: () => _leaveChatRoom(widget.roomId),
           ),
+
         ],
       ),
       body: Column(
@@ -362,7 +368,7 @@ class MessageStream extends StatelessWidget {
   final String roomId;
   final String senderName;
 
-  const MessageStream({super.key, required this.roomId, required this.senderName});
+  const MessageStream({Key? key, required this.roomId, required this.senderName});
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +418,7 @@ class MessageBubble extends StatelessWidget {
   final int timestamp;
   final bool isMe;
 
-  const MessageBubble({super.key, required this.senderName, required this.text, required this.timestamp, required this.isMe});
+  const MessageBubble({Key? key, required this.senderName, required this.text, required this.timestamp, required this.isMe});
 
   @override
   Widget build(BuildContext context) {
@@ -474,5 +480,3 @@ class MessageBubble extends StatelessWidget {
     );
   }
 }
-
-
