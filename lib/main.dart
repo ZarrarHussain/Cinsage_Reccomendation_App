@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cinsage/Chat.dart';
-import 'package:cinsage/SearchDetails.dart';
 import 'package:cinsage/Survey.dart';
 import 'package:cinsage/accounts.dart';
 import 'package:csv/csv.dart';
