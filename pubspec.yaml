@@ -32,9 +32,13 @@ dependencies:
     sdk: flutter
   http: ^0.13.3
   cached_network_image: ^3.0.0
-  intl: ^0.17.0
+  intl: ^0.19.0
   carousel_slider: ^4.0.0
   firebase_core: ^2.31.0
+  google_mlkit_language_id: ^0.8.0
+  cloud_functions: ^4.2.1
+  flutter_gemini: ^2.0.4
+  dash_chat_2: ^0.0.21
   firebase_auth: ^4.19.5
   firebase_database: ^10.5.5
   cloud_firestore: ^4.7.0
@@ -42,7 +46,11 @@ dependencies:
   animate_do: ^3.1.2
   firebase_storage: ^11.7.6
   image_picker: ^0.8.4+3
+  flutter_svg: ^0.22.0
   csv: ^5.0.0
+  fluttertoast: ^8.0.9
+
+
 
 
   # The following adds the Cupertino Icons font to your application.
@@ -76,6 +84,7 @@ flutter:
     - assets/clock.png
     - assets/background.png
     - assets/movies.csv
+    - assets/cb_icon.svg
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
