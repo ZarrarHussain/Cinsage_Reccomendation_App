@@ -1,3 +1,4 @@
+import 'package:cinsage/login.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -23,7 +24,6 @@ class _AccountsScreenState extends State<AccountsScreen> {
     _getUser();
   }
 
-  // Function to check if a user is logged in and fetch user name and profile picture
   // Function to check if a user is logged in and fetch user name and profile picture
   Future<void> _getUser() async {
     FirebaseAuth auth = FirebaseAuth.instance;
@@ -132,6 +132,9 @@ class _AccountsScreenState extends State<AccountsScreen> {
             const SizedBox(height: 40),
             ElevatedButton(
               onPressed: () {
+                Navigator.of(context).push(
+                    MaterialPageRoute(
+                    builder: (context) => LoginScreen()));
                 // Navigate to the login screen
               },
               style: ElevatedButton.styleFrom(
@@ -139,6 +142,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),
+
               ),
               child: const Text('Login', style: TextStyle(fontSize: 16)),
             ),

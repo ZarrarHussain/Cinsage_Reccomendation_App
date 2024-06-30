@@ -177,13 +177,23 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _searchChatRooms(String query) {
-    List<ChatRoomTile> filteredTiles = chatRoomTiles.where((tile) {
-      return tile.roomName.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-    setState(() {
-      chatRoomTiles = filteredTiles;
-    });
+    if (query.isEmpty) {
+      // If the search query is empty, reset to show all chat rooms
+      setState(() {
+        chatRoomTiles = [];
+      });
+      _fetchChatRooms(); // Fetch all chat rooms again
+    } else {
+      // Perform filtering based on the query
+      List<ChatRoomTile> filteredTiles = chatRoomTiles.where((tile) {
+        return tile.roomName.toLowerCase().contains(query.toLowerCase());
+      }).toList();
+      setState(() {
+        chatRoomTiles = filteredTiles;
+      });
+    }
   }
+
 
   void _navigateToLogin() {
     Navigator.pushReplacement(
@@ -215,7 +225,7 @@ class _ChatPageState extends State<ChatPage> {
                 hintText: 'Search chat rooms...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
+                  borderRadius: BorderRadius.circular(20.0),
                 ),
               ),
               onChanged: (query) => _searchChatRooms(query),
@@ -264,8 +274,7 @@ class ChatRoomTile extends StatelessWidget {
   }
 }
 
-class ChatRoomPage extends StatefulWidget
-{
+class ChatRoomPage extends StatefulWidget {
   final String roomId;
   final String roomName;
   final String senderName;
@@ -286,7 +295,7 @@ class ChatRoomPage extends StatefulWidget
 class _ChatRoomPageState extends State<ChatRoomPage> {
   final TextEditingController _controller = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  String _senderName = '';
+  final ScrollController _scrollController = ScrollController();
 
   void _leaveChatRoom(String roomId) {
     String? userId = FirebaseAuth.instance.currentUser?.uid;
@@ -310,13 +319,13 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       });
       _controller.clear();
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
-
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -328,25 +337,37 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
             icon: const Icon(Icons.exit_to_app),
             onPressed: () => _leaveChatRoom(widget.roomId),
           ),
-
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: MessageStream(roomId: widget.roomId, senderName: widget.senderName),
+            child: MessageStream(
+              roomId: widget.roomId,
+              senderName: widget.senderName,
+              scrollController: _scrollController,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      hintText: 'Enter your message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20.0),
+                      color: Colors.grey[200], // Adjust the color of the input field background
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: TextField(
+                        controller: _controller,
+                        style: TextStyle(color: Colors.black), // Set text color to white
+                        decoration: InputDecoration(
+                          hintText: 'Enter your message...',
+                          hintStyle: TextStyle(color: Colors.black54),
+                          border: InputBorder.none, // Remove border
+                        ),
                       ),
                     ),
                   ),
@@ -364,11 +385,18 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   }
 }
 
+
 class MessageStream extends StatelessWidget {
   final String roomId;
   final String senderName;
+  final ScrollController scrollController;
 
-  const MessageStream({Key? key, required this.roomId, required this.senderName});
+  const MessageStream({
+    Key? key,
+    required this.roomId,
+    required this.senderName,
+    required this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -403,7 +431,14 @@ class MessageStream extends StatelessWidget {
           messageBubbles.add(messageBubble);
         }
 
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (scrollController.hasClients) {
+            scrollController.jumpTo(scrollController.position.maxScrollExtent);
+          }
+        });
+
         return ListView(
+          controller: scrollController,
           padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 10.0),
           children: messageBubbles,
         );
@@ -412,13 +447,20 @@ class MessageStream extends StatelessWidget {
   }
 }
 
+
 class MessageBubble extends StatelessWidget {
   final String senderName;
   final String text;
   final int timestamp;
   final bool isMe;
 
-  const MessageBubble({Key? key, required this.senderName, required this.text, required this.timestamp, required this.isMe});
+  const MessageBubble({
+    Key? key,
+    required this.senderName,
+    required this.text,
+    required this.timestamp,
+    required this.isMe,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -440,17 +482,19 @@ class MessageBubble extends StatelessWidget {
           Material(
             borderRadius: isMe
                 ? const BorderRadius.only(
-              topLeft: Radius.circular(10.0),
-              bottomLeft: Radius.circular(10.0),
-              bottomRight: Radius.circular(10.0),
+              topLeft: Radius.circular(35.0),
+              topRight: Radius.circular(35.0),
+              bottomLeft: Radius.circular(35.0),
+              bottomRight: Radius.circular(35.0),
             )
                 : const BorderRadius.only(
-              topRight: Radius.circular(10.0),
-              bottomLeft: Radius.circular(10.0),
-              bottomRight: Radius.circular(10.0),
+              topLeft: Radius.circular(35.0),
+              topRight: Radius.circular(35.0),
+              bottomLeft: Radius.circular(35.0),
+              bottomRight: Radius.circular(35.0),
             ),
             elevation: 5.0,
-            color: isMe ? Colors.lightBlueAccent : Colors.white,
+            color: isMe ? Colors.blue : Colors.white,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
               child: Column(
@@ -459,7 +503,7 @@ class MessageBubble extends StatelessWidget {
                   Text(
                     text,
                     style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black54,
+                      color: isMe ? Colors.black : Colors.black, // Changed text color to black or white
                       fontSize: 15.0,
                     ),
                   ),
@@ -467,7 +511,7 @@ class MessageBubble extends StatelessWidget {
                   Text(
                     formattedTime,
                     style: const TextStyle(
-                      color: Colors.grey,
+                      color: Colors.black54,
                       fontSize: 10.0,
                     ),
                   ),

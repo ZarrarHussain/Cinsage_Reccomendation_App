@@ -1,23 +1,33 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:cinsage/Chat.dart';
-import 'package:cinsage/Survey.dart';
+import 'package:cinsage/Chatbot.dart';
 import 'package:cinsage/accounts.dart';
 import 'package:csv/csv.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_gemini/flutter_gemini.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import 'package:cinsage/firebase_options.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'const.dart';
+//import 'Chatbot.dart';
+
 
 Future<void> main() async {
+  Gemini.init(apiKey: GEMINI_API_KEY);
+
   runApp(const MyApp());
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options:
   DefaultFirebaseOptions.currentPlatform,);
+
 
 }
 
@@ -32,10 +42,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'TMDB Flutter App',
       theme: ThemeData.dark().copyWith(
-        primaryColor: Colors.red, // Customize primary color
+        primaryColor: Colors.blueAccent, // Customize primary color
         secondaryHeaderColor: Colors.black, // Customize accent color
-        colorScheme: const ColorScheme(brightness: Brightness.dark, primary: Colors.blue, onPrimary: Colors.red,
-            secondary: Colors.red, onSecondary: Colors.lightBlueAccent, error: Colors.red, onError: Colors.redAccent, surface: Colors.black, onSurface: Colors.white)
+        colorScheme: const ColorScheme(brightness: Brightness.dark, primary: Colors.blue, onPrimary: Colors.black,
+            secondary: Colors.blue, onSecondary: Colors.black, error: Colors.red, onError: Colors.redAccent, surface: Colors.black, onSurface: Colors.white)
       ),
       home: const MovieListScreen(),
     );
@@ -70,7 +80,10 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       }
     });
   }
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
 
+  }
   late TabController _tabController;
   late DrawerController _drawerController;
 
@@ -85,6 +98,8 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
   List<dynamic> utvShowRatings = [];
   List<String> selectedGenres = [];
   DateTime? selectedReleaseDate;
+  int? selectedReleaseYear;
+
   String? selectedLanguage;
   double? selectedRating;
   int _selectedIndex = 0;
@@ -208,7 +223,7 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
                     SizedBox(height: 16),
                     _buildGenresFilter(setState),
                     SizedBox(height: 16),
-                    _buildReleaseDateFilter(context),
+                    _buildReleaseDateFilter(setState),
                     SizedBox(height: 16),
                     _buildLanguageFilter(setState),
                     SizedBox(height: 16),
@@ -216,14 +231,34 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
                     SizedBox(height: 24),
                     Center(
                       child: ElevatedButton(
-                        onPressed: () {
-                          // Apply the filters and close the modal
-                          widget.onApplyFilters(
-                            selectedGenres,
-                            selectedReleaseDate,
-                            selectedLanguage,
-                            selectedRating,
+                        onPressed: () async {
+                          // Load movies
+                          List<Movie> allMovies = await loadMovies('assets/movies.csv');
+
+                          // Apply filters
+                          List<Movie> filteredMovies = allMovies.where((movie) {
+                            bool matchesGenre = selectedGenres.isEmpty ||
+                                selectedGenres.contains(movie.genre);
+                            bool matchesReleaseYear = selectedReleaseYear == null ||
+                                movie.releaseYear == selectedReleaseYear;
+                            bool matchesLanguage = selectedLanguage == null ||
+                                movie.language == selectedLanguage;
+                            bool matchesRating = selectedRating == null ||
+                                movie.rating >= selectedRating!;
+                            return matchesGenre && matchesReleaseYear &&
+                                matchesLanguage && matchesRating;
+                          }).toList();
+
+                          // Navigate to filtered movie list screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FilteredMoviesScreen(
+                                movies: filteredMovies,
+                              ),
+                            ),
                           );
+
                           Navigator.pop(context); // Close the Filters menu
                         },
                         child: Text(
@@ -246,27 +281,46 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       },
     );
   }
-  Widget _buildReleaseDateFilter(BuildContext context) {
+
+
+
+  Widget _buildReleaseDateFilter(StateSetter setState) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text('Release Date'),
-      subtitle: Text(selectedReleaseDate != null ? '${selectedReleaseDate!.toLocal()}'.split(' ')[0] : 'Any'),
+      title: Text('Release Year'),
+      subtitle: Text(selectedReleaseYear != null ? '$selectedReleaseYear' : 'Any'),
       trailing: Icon(Icons.calendar_today),
       onTap: () async {
-        DateTime? picked = await showDatePicker(
+        showDialog(
           context: context,
-          initialDate: selectedReleaseDate ?? DateTime.now(),
-          firstDate: DateTime(2000),
-          lastDate: DateTime(2101),
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Select Release Year'),
+              content: Container(
+                width: double.minPositive,
+                child: YearPicker(
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2101),
+                  initialDate: DateTime.now(),
+                  selectedDate: selectedReleaseYear != null
+                      ? DateTime(selectedReleaseYear!)
+                      : DateTime.now(),
+                  onChanged: (DateTime dateTime) {
+                    setState(() {
+                      selectedReleaseYear = dateTime.year;
+                      Navigator.pop(context);
+                    });
+                  },
+                ),
+              ),
+            );
+          },
         );
-        if (picked != null) {
-          setState(() {
-            selectedReleaseDate = picked;
-          });
-        }
       },
     );
   }
+
+
 
   Widget _buildGenresFilter(StateSetter setState) {
     final genres = ['Action', 'Comedy', 'Drama', 'Horror', 'Romance', 'Sci-Fi'];
@@ -390,6 +444,19 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => Chatbot()),
+          );
+        },
+        child: SvgPicture.asset('assets/cb_icon.svg',
+            width: 35,
+            height: 35,
+          color: Colors.black,
+        ),
+      ),
     );
   }
 
@@ -508,64 +575,41 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
               ),
             ),
           ),
+
+
+
+          //masla yaha he boss
+
+
+
+
           ListTile(
             leading: Icon(Icons.person, color: Colors.blueAccent),
             title: const Text('Account', style: TextStyle(fontSize: 18)),
             onTap: () {
-              Navigator.push(context,MaterialPageRoute(builder: (context) => const AccountsScreen())
+              Navigator.push(context,MaterialPageRoute(builder: (context) =>  AccountsScreen())
 
               );
             },
           ),
-          ListTile(
-            leading: Icon(Icons.display_settings, color: Colors.blueAccent),
-            title: const Text('Display', style: TextStyle(fontSize: 18)),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.settings, color: Colors.blueAccent),
-            title: const Text('Settings', style: TextStyle(fontSize: 18)),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.notifications, color: Colors.blueAccent),
-            title: const Text('Notifications', style: TextStyle(fontSize: 18)),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.storage, color: Colors.blueAccent),
-            title: const Text('Storage', style: TextStyle(fontSize: 18)),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.info, color: Colors.blueAccent),
-            title: const Text('About', style: TextStyle(fontSize: 18)),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.feedback, color: Colors.blueAccent),
-            title: const Text('Send Feedback', style: TextStyle(fontSize: 18)),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
+
           Divider(),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 20.0),
             child: Center(
+
               child: ElevatedButton.icon(
                 onPressed: () {
+                  _signOut();
                   Navigator.pop(context);
+                  Fluttertoast.showToast(
+                    msg: "Signed out successfully",
+                    toastLength: Toast.LENGTH_SHORT,
+                    gravity: ToastGravity.BOTTOM,
+                    backgroundColor: Colors.black,
+                    textColor: Colors.white,
+                    fontSize: 16.0,
+                  );
                 },
                 icon: Icon(Icons.logout, color: Colors.black),
                 label: Text(
@@ -1239,4 +1283,103 @@ class MovieSearchDelegate extends SearchDelegate {
 }
 
 
+class Movie {
+  final String title;
+  final String posterUrl;
+  final String releaseDate;
+  final String overview;
+  final double rating;
+  final String genre;
+  final String language;
 
+  Movie({
+    required this.title,
+    required this.posterUrl,
+    required this.releaseDate,
+    required this.overview,
+    required this.rating,
+    required this.genre,
+    required this.language,
+  });
+
+  factory Movie.fromCsv(List<dynamic> csvRow) {
+    return Movie(
+      title: csvRow[2],
+      posterUrl: csvRow[10],
+      releaseDate: csvRow[4],
+      overview: csvRow[7],
+      rating: double.parse(csvRow[6]),
+      genre: csvRow[3],
+      language: csvRow[5],
+    );
+  }
+
+  int get releaseYear {
+    final parts = releaseDate.split('/');
+    return int.parse(parts[2]);
+  }
+}
+
+
+Future<List<Movie>> loadMovies(String path) async {
+  final file = File(path);
+  final csvString = await file.readAsString();
+  final csvRows = const CsvToListConverter().convert(csvString);
+  return csvRows.map((row) => Movie.fromCsv(row)).toList();
+}
+
+
+
+class FilteredMoviesScreen extends StatelessWidget {
+  final List<Movie> movies;
+
+  FilteredMoviesScreen({required this.movies});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Filtered Movies'),
+      ),
+      body: GridView.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.7,
+        ),
+        itemCount: movies.length,
+        itemBuilder: (context, index) {
+          final movie = movies[index];
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MovieDetailsScreen(
+                    title: movie.title,
+                    posterUrl: movie.posterUrl,
+                    releaseDate: movie.releaseDate,
+                    overview: movie.overview,
+                    rating: movie.rating,
+                  ),
+                ),
+              );
+            },
+            child: Card(
+              child: Column(
+                children: [
+                  Image.network(movie.posterUrl, fit: BoxFit.cover),
+                  SizedBox(height: 8),
+                  Text(
+                    movie.title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
