@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "763758955069",
+    "firebase_url": "https://cinsage-bfe68-default-rtdb.firebaseio.com",
     "project_id": "cinsage-bfe68",
     "storage_bucket": "cinsage-bfe68.appspot.com"
   },
@@ -15,7 +16,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCz9DoOvydxXQ1_4dTMaU_lItUcJjF00Wo"
+          "current_key": "AIzaSyDuHVfCjN0xDsdeCOHPdfBpDlKZxXtAhxY"
         }
       ],
       "services": {

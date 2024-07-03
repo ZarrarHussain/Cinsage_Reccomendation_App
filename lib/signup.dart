@@ -8,7 +8,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 import 'package:animate_do/animate_do.dart';
 import 'package:cinsage/Survey.dart';
-import 'dart:io'as io;
+import 'dart:io' as io;
 
 class SignUpScreen extends StatelessWidget {
   final TextEditingController emailController = TextEditingController();
@@ -19,10 +19,26 @@ class SignUpScreen extends StatelessWidget {
   SignUpScreen({Key? key});
 
   void signUp(BuildContext context) async {
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
+
+    // Validate email
+    if (!_validateEmail(email)) {
+      _showErrorDialog(context, 'Invalid Email', 'Only valid @gmail.com emails are allowed.');
+      return;
+    }
+
+    // Validate password
+    if (!_validatePassword(password)) {
+      _showErrorDialog(context, 'Invalid Password',
+          'Password must be at least 8 characters long, contain at least one uppercase letter, and one number.');
+      return;
+    }
+
     try {
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text,
-        password: passwordController.text,
+        email: email,
+        password: password,
       );
 
       // Access the current user
@@ -48,25 +64,42 @@ class SignUpScreen extends StatelessWidget {
       if (e.code == 'weak-password') {
         print('The password provided is too weak.');
       } else {
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text('Sign-up Failed'),
-              content: const Text('An unexpected error occurred. Please try again later.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
-        );
+        _showErrorDialog(context, 'Sign-up Failed', 'An unexpected error occurred. Please try again later.');
       }
     } catch (e) {
       print(e);
     }
+  }
+
+  bool _validateEmail(String email) {
+    // Check if the email matches exactly "something@gmail.com"
+    final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$');
+    return regex.hasMatch(email);
+  }
+
+  bool _validatePassword(String password) {
+    if (password.length < 8) return false;
+    if (!password.contains(RegExp(r'[A-Z]'))) return false;
+    if (!password.contains(RegExp(r'[0-9]'))) return false;
+    return true;
+  }
+
+  void _showErrorDialog(BuildContext context, String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<String?> _uploadProfilePicture(String userId) async {
@@ -91,8 +124,7 @@ class SignUpScreen extends StatelessWidget {
       if (kIsWeb) {
         // For web platform, create a File object from the selected file using the createFileFromBytes method.
         final bytes = await pickedFile.readAsBytes();
-        _image = File(pickedFile.name)
-          ..writeAsBytes(bytes);
+        _image = File(pickedFile.name)..writeAsBytes(bytes);
       } else {
         // For other platforms, use the picked file directly.
         _image = File(pickedFile.path);
@@ -131,196 +163,193 @@ class SignUpScreen extends StatelessWidget {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: const Text('Sign Up')),
-    body: SingleChildScrollView(
-    child: Container(
-    padding: const EdgeInsets.all(20.0),
-    child: Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: <Widget>[
-    Container(
-    height: 300,
-    decoration: const BoxDecoration(
-    image: DecorationImage(
-    image: AssetImage('assets/background.png'),
-    fit: BoxFit.fill,
-    ),
-    ),
-    child: Stack(
-    children: <Widget>[
-    Positioned(
-    left: 30,
-    width: 80,
-    height: 200,
-    child: FadeInUp(
-    duration: const Duration(seconds: 1),
-    child: Container(
-    decoration: const BoxDecoration(
-    image: DecorationImage(
-    image: AssetImage('assets/light-1.png'),
-    ),
-    ),
-    ),
-    ),
-    ),
-    Positioned(
-    left: 140,
-    width: 80,
-    height: 150,
-    child: FadeInUp(
-    duration: const Duration(milliseconds: 1200),
-    child: Container(
-    decoration: const BoxDecoration(
-    image: DecorationImage(
-    image: AssetImage('assets/light-2.png'),
-    ),
-    ),
-    ),
-    ),
-    ),
-    Positioned(
-    right: 40,
-    top: 40,
-    width: 80,
-    height: 150,
-    child: FadeInUp(
-    duration: const Duration(milliseconds: 1300),
-    child: Container(
-    decoration: const BoxDecoration(
-    image: DecorationImage(
-    image: AssetImage('assets/clock.png'),
-    ),
-    ),
-    ),
-    ),
-    ),
-    Positioned(
-    child: FadeInUp(
-    duration: const Duration(milliseconds: 1600),
-    child: Container(
-    margin: const EdgeInsets.only(top: 50),
-    child: const Center(
-    child: Text(
-    "Sign Up",
-    style: TextStyle(
-    color: Colors.white,
-    fontSize: 40,
-    fontWeight: FontWeight.bold,
-    ),
-    ),
-    ),
-    ),
-    ),
-    ),
-    ],
-    ),
-    ),
-    const SizedBox(height: 30),
-    FadeInUp(
-    duration: const Duration(milliseconds: 1800),
-    child: GestureDetector(
-    onTap: () {
-    _showImagePicker(context);
-    },
-    child: CircleAvatar(
-    radius: 50,
-    backgroundImage: _image != null ? FileImage(_image!) : null,
-    child: _image == null
-    ? const Icon(
-    Icons.add_a_photo,
-    size: 50,
-    )
-        : null,
-    ),
-    ),
-    ),
-    const SizedBox(height: 30),
-    FadeInUp(
-    duration: const Duration(milliseconds: 1800),
-    child: Container(
-    padding: const EdgeInsets.all(5),
-    decoration: BoxDecoration(
-    color : Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color.fromRGBO(143, 148, 251, 1)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color.fromRGBO(143, 148, 251, .2),
-          blurRadius: 20.0,
-          offset: Offset(0, 10),
-        ),
-      ],
-    ),
-      child: Column(
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color.fromRGBO(143, 148, 251, 1))),
-            ),
-            child: TextField(
-              style: const TextStyle(color: Colors.black),
-              controller: emailController,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "Email or Phone number",
-                hintStyle: TextStyle(color: Colors.grey[700]),
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              style: const TextStyle(color: Colors.black),
-              controller: passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "Password",
-                hintStyle: TextStyle(color: Colors.grey[700]),
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              style: const TextStyle(color: Colors.black),
-              controller: usernameController,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "Username",
-                hintStyle: TextStyle(color: Colors.grey[700]),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-    ),
-      const SizedBox(height: 30),
-      FadeInUp(
-        duration: const Duration(milliseconds: 1900),
+      appBar: AppBar(title: const Text('Sign Up')),
+      body: SingleChildScrollView(
         child: Container(
-          height: 50,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: ElevatedButton(
-            onPressed: () => signUp(context),
-            child: const Text("Sign Up", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Container(
+                height: 300,
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/background.png'),
+                    fit: BoxFit.fill,
+                  ),
+                ),
+                child: Stack(
+                  children: <Widget>[
+                    Positioned(
+                      left: 30,
+                      width: 80,
+                      height: 200,
+                      child: FadeInUp(
+                        duration: const Duration(seconds: 1),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage('assets/light-1.png'),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 140,
+                      width: 80,
+                      height: 150,
+                      child: FadeInUp(
+                        duration: const Duration(milliseconds: 1200),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage('assets/light-2.png'),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 40,
+                      top: 40,
+                      width: 80,
+                      height: 150,
+                      child: FadeInUp(
+                        duration: const Duration(milliseconds: 1300),
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage('assets/clock.png'),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      child: FadeInUp(
+                        duration: const Duration(milliseconds: 1600),
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 50),
+                          child: const Center(
+                            child: Text(
+                              "Sign Up",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+              FadeInUp(
+                duration: const Duration(milliseconds: 1800),
+                child: GestureDetector(
+                  onTap: () {
+                    _showImagePicker(context);
+                  },
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundImage: _image != null ? FileImage(_image!) : null,
+                    child: _image == null
+                        ? const Icon(
+                      Icons.add_a_photo,
+                      size: 50,
+                    )
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              FadeInUp(
+                duration: const Duration(milliseconds: 1800),
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color.fromRGBO(143, 148, 251, 1)),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color.fromRGBO(143, 148, 251, .2),
+                        blurRadius: 20.0,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.all(8.0),
+                        decoration: const BoxDecoration(
+                          border: Border(bottom: BorderSide(color: Color.fromRGBO(143, 148, 251, 1))),
+                        ),
+                        child: TextField(
+                          style: const TextStyle(color: Colors.black),
+                          controller: emailController,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "Email or Phone number",
+                            hintStyle: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8.0),
+                        child: TextField(
+                          style: const TextStyle(color: Colors.black),
+                          controller: passwordController,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "Password",
+                            hintStyle: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8.0),
+                        child: TextField(
+                          style: const TextStyle(color: Colors.black),
+                          controller: usernameController,
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: "Username",
+                            hintStyle: TextStyle(color: Colors.grey[700]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+              FadeInUp(
+                duration: const Duration(milliseconds: 1900),
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: () => signUp(context),
+                    child: const Text("Sign Up", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-
-    ],
-    ),
-    ),
-    ),
     );
   }
 }
-

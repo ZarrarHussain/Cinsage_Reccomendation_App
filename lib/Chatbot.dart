@@ -17,22 +17,21 @@ class _Chatbot extends State<Chatbot> {
   final Gemini gemini = Gemini.instance;
 
   List<ChatMessage> messages = [];
+  bool _defaultMessageSent = false;
 
   ChatUser currentUser = ChatUser(id: "0", firstName: "User");
   ChatUser geminiUser = ChatUser(
     id: "1",
     firstName: "Cinsage",
-    profileImage:
-    "https://i.imgur.com/w7v2Vfj.jpeg",
+    profileImage: "https://i.imgur.com/w7v2Vfj.jpeg",
   );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         centerTitle: true,
-        title: const Text(
-          "Cinsage Chat",
-        ),
+        title: const Text("Cinsage Chat"),
       ),
       body: _buildUI(),
     );
@@ -40,15 +39,15 @@ class _Chatbot extends State<Chatbot> {
 
   Widget _buildUI() {
     return DashChat(
-      inputOptions: InputOptions(trailing: [
-        IconButton(
-          onPressed: _sendMediaMessage,
-          icon: const Icon(
-            Icons.image,
-          ),
-        )
-      ])
-      ,
+      inputOptions: InputOptions(
+        inputTextStyle: TextStyle(color: Colors.black),
+        trailing: [
+          IconButton(
+            onPressed: _sendMediaMessage,
+            icon: const Icon(Icons.image),
+          )
+        ],
+      ),
       currentUser: currentUser,
       onSend: _sendMessage,
       messages: messages,
@@ -63,38 +62,31 @@ class _Chatbot extends State<Chatbot> {
       String question = chatMessage.text;
       List<Uint8List>? images;
       if (chatMessage.medias?.isNotEmpty ?? false) {
-        images = [
-          File(chatMessage.medias!.first.url).readAsBytesSync(),
-        ];
+        images = [File(chatMessage.medias!.first.url).readAsBytesSync()];
       }
 
-      // Add default prompt if chat history is empty
-      if (messages.length <= 1) {
-        question = "Your name is Cinsage and you are a movie reccomender. You will suggest me movies and tv shows based on my interest. User: $question";
+      // Add default prompt if chat history is empty and the default message has not been sent
+      if (!_defaultMessageSent && messages.length <= 1) {
+        question = "Your name is Cinsage and you are a movie recommender. User: $question";
+        _defaultMessageSent = true;
       }
 
-      gemini
-          .streamGenerateContent(
+      gemini.streamGenerateContent(
         question,
         images: images,
-      )
-          .listen((event) {
+      ).listen((event) {
         ChatMessage? lastMessage = messages.firstOrNull;
         if (lastMessage != null && lastMessage.user == geminiUser) {
           lastMessage = messages.removeAt(0);
           String response = event.content?.parts?.fold(
-              "", (previous, current) => "$previous ${current.text}") ??
-              "";
+              "", (previous, current) => "$previous ${current.text}") ?? "";
           lastMessage.text += response;
-          setState(
-                () {
-              messages = [lastMessage!, ...messages];
-            },
-          );
+          setState(() {
+            messages = [lastMessage!, ...messages];
+          });
         } else {
           String response = event.content?.parts?.fold(
-              "", (previous, current) => "$previous ${current.text}") ??
-              "";
+              "", (previous, current) => "$previous ${current.text}") ?? "";
           ChatMessage message = ChatMessage(
             user: geminiUser,
             createdAt: DateTime.now(),
@@ -112,9 +104,7 @@ class _Chatbot extends State<Chatbot> {
 
   void _sendMediaMessage() async {
     ImagePicker picker = ImagePicker();
-    XFile? file = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+    XFile? file = await picker.pickImage(source: ImageSource.gallery);
     if (file != null) {
       ChatMessage chatMessage = ChatMessage(
         user: currentUser,
