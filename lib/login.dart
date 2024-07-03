@@ -2,8 +2,9 @@ import 'package:cinsage/main.dart';
 import 'package:cinsage/signup.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:animate_do/animate_do.dart'; // Add this line for animations
+import 'package:animate_do/animate_do.dart';
 
+import 'forget_password.dart'; // Add this line for animations
 
 class LoginScreen extends StatelessWidget {
   final TextEditingController emailController = TextEditingController();
@@ -12,65 +13,73 @@ class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
 
   void login(BuildContext context) async {
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
+
+    // Validate email
+    if (!_validateEmail(email)) {
+      _showErrorDialog(context, 'Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    // Validate password
+    if (password.isEmpty) {
+      _showErrorDialog(context, 'Invalid Password', 'Please enter your password.');
+      return;
+    }
+
     try {
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text,
-        password: passwordController.text,
+        email: email,
+        password: password,
       );
       // Navigate to the next screen upon successful login
-      // Replace NextScreen() with your desired screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const MovieListScreen()),
       );
-    } catch (e) {
-      print('Caught exception type: ${e.runtimeType}');
-      if (e is FirebaseAuthException) {
-        if (e.code == 'user-not-found' || e.code == 'wrong-password') {
-          // Handle invalid credentials
-          showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: const Text('Login Failed'),
-                content: const Text('Invalid email or password.'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('OK'),
-                  ),
-                ],
-              );
-            },
-          );
-        } else {
-          showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: const Text('Login Failed'),
-                content: const Text('An unexpected error occurred. Please try again later.'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('OK'),
-                  ),
-                ],
-              );
-            },
-          );
-        }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+        // Handle invalid credentials
+        _showErrorDialog(context, 'Login Failed', 'Invalid email or password.');
       } else {
-        // Handle other exceptions
-        print('Error: $e');
+        _showErrorDialog(context, 'Login Failed', 'Invalid email or password.');
       }
+    } catch (e) {
+      // Handle other exceptions
+      print('Error: $e');
     }
+  }
+
+
+  bool _validateEmail(String email) {
+    // Simple email validation
+    final regex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    return regex.hasMatch(email);
+  }
+
+
+
+  void _showErrorDialog(BuildContext context, String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context); // Get the current theme
-
     return Scaffold(
       appBar: AppBar(title: const Text('Login')),
       body: SingleChildScrollView(
@@ -186,7 +195,7 @@ class LoginScreen extends StatelessWidget {
                           controller: emailController,
                           decoration: InputDecoration(
                             border: InputBorder.none,
-                            hintText: "Email or Phone number",
+                            hintText: "Email",
                             hintStyle: TextStyle(color: Colors.grey[700]),
                           ),
                         ),
@@ -201,7 +210,6 @@ class LoginScreen extends StatelessWidget {
                             border: InputBorder.none,
                             hintText: "Password",
                             hintStyle: TextStyle(color: Colors.grey[700]),
-
                           ),
                         ),
                       ),
@@ -216,7 +224,6 @@ class LoginScreen extends StatelessWidget {
                   height: 50,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-
                   ),
                   child: ElevatedButton(
                     onPressed: () => login(context),
@@ -226,27 +233,34 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Row(
-
+                mainAxisAlignment: MainAxisAlignment.spaceBetween, // Align items with space between
                 children: [
                   FadeInUp(
                     duration: const Duration(milliseconds: 500),
-                    child: const Text("Forgot Password?", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1))),
-                  ),
-                  SizedBox(
-                    width:125,
+                    child:  TextButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => ForgotPasswordScreen()),
+                        );
+                      },
+                      child: const Text("Forgot Password?", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1))),
+                    ),
                   ),
                   FadeInUp(
                     duration: const Duration(milliseconds: 500),
-                    child: TextButton( onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (context) => SignUpScreen()),
-                      );
-                    }, child: const Text("not a user? sign-up", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1)),),),
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => SignUpScreen()),
+                        );
+                      },
+                      child: const Text("Not a user? Sign-up", style: TextStyle(color: Color.fromRGBO(143, 148, 251, 1))),
+                    ),
                   ),
                 ],
               ),
-
             ],
           ),
         ),

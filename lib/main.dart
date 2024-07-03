@@ -17,6 +17,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cinsage/firebase_options.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'const.dart';
+import 'dart:async';
+
 //import 'Chatbot.dart';
 
 
@@ -52,11 +54,25 @@ class MyApp extends StatelessWidget {
   }
 }
 
+class FilterDebounce {
+Timer? _debounce;
+
+void run(VoidCallback action, {Duration duration = const Duration(milliseconds: 500)}) {
+  if (_debounce?.isActive ?? false) _debounce?.cancel();
+  _debounce = Timer(duration, action);
+}
+
+void dispose() {
+  _debounce?.cancel();
+}
+}
+
 class MovieListScreen extends StatefulWidget {
   const MovieListScreen({super.key});
 
   @override
   _MovieListScreenState createState() => _MovieListScreenState();
+
 
   void onApplyFilters(List<String> selectedGenres, DateTime? selectedReleaseDate, String? selectedLanguage, double? selectedRating) {}
 }
@@ -69,6 +85,7 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
 
   //final Uri apiUrlUrdu=Uri.parse('https://api.themoviedb.org/3/discover/movie?api_key=$apiKey&region=PK');
   final int _selectedIndex1 = 0;
+  final FilterDebounce debounce = FilterDebounce();
 
 
   void _onItemTapped(int index) {
@@ -129,6 +146,8 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
     fetchMovies();
     fetchUrduMovies();
   }
+
+
 
 
   Future<void> fetchMovies() async {
@@ -196,7 +215,6 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       print('Failed to load TV shows');
     }
   }
-
   void _openFiltersMenu() {
     showModalBottomSheet(
       context: context,
@@ -226,40 +244,44 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
                     _buildReleaseDateFilter(setState),
                     SizedBox(height: 16),
                     _buildLanguageFilter(setState),
-                    SizedBox(height: 16),
-                    _buildRatingFilter(setState),
                     SizedBox(height: 24),
                     Center(
                       child: ElevatedButton(
-                        onPressed: () async {
-                          // Load movies
-                          List<Movie> allMovies = await loadMovies('assets/movies.csv');
+                        onPressed: () {
+                          debounce.run(() async {
+                            // Load movies
+                            List<Movie> allMovies = await loadMovies('assets/movies.csv');
+                            print('All movies loaded: ${allMovies.length}');
 
-                          // Apply filters
-                          List<Movie> filteredMovies = allMovies.where((movie) {
-                            bool matchesGenre = selectedGenres.isEmpty ||
-                                selectedGenres.contains(movie.genre);
-                            bool matchesReleaseYear = selectedReleaseYear == null ||
-                                movie.releaseYear == selectedReleaseYear;
-                            bool matchesLanguage = selectedLanguage == null ||
-                                movie.language == selectedLanguage;
-                            bool matchesRating = selectedRating == null ||
-                                movie.rating >= selectedRating!;
-                            return matchesGenre && matchesReleaseYear &&
-                                matchesLanguage && matchesRating;
-                          }).toList();
+                            // Apply filters
+                            List<Movie> filteredMovies = allMovies.where((movie) {
+                              bool matchesGenre = selectedGenres.isEmpty ||
+                                  selectedGenres.any((genre) => movie.genre.toLowerCase().split(', ').contains(genre.toLowerCase()));
+                              bool matchesReleaseYear = selectedReleaseYear == null ||
+                                  (movie.releaseYear != null && movie.releaseYear == selectedReleaseYear);
+                              bool matchesLanguage = selectedLanguage == null ||
+                                  movie.language.toLowerCase() == selectedLanguage!.toLowerCase();
+                              return matchesGenre && matchesReleaseYear && matchesLanguage;
+                            }).toList();
 
-                          // Navigate to filtered movie list screen
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FilteredMoviesScreen(
-                                movies: filteredMovies,
+                            // Debugging output
+                            print('Selected Genres: $selectedGenres');
+                            print('Selected Release Year: $selectedReleaseYear');
+                            print('Selected Language: $selectedLanguage');
+                            print('Filtered movies: ${filteredMovies.length}');
+                            for (var movie in filteredMovies) {
+                              print('Filtered movie: ${movie.title}, Genre: ${movie.genre}, Release Year: ${movie.releaseYear}, Language: ${movie.language}');
+                            }
+
+                            // Navigate to filtered movie list screen
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => FilteredMoviesScreen(
+                                  movies: filteredMovies,
+                                ),
                               ),
-                            ),
-                          );
-
-                          Navigator.pop(context); // Close the Filters menu
+                            );
+                          });
                         },
                         child: Text(
                           'Apply Filters',
@@ -281,8 +303,6 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       },
     );
   }
-
-
 
   Widget _buildReleaseDateFilter(StateSetter setState) {
     return ListTile(
@@ -370,41 +390,6 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       },
     );
   }
-
-  Widget _buildRatingFilter(StateSetter setState) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Rating',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 8),
-        Row(
-          children: [
-            for (int i = 1; i <= 10; i++)
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedRating = i.toDouble();
-                  });
-                },
-                child: Icon(
-                  i <= (selectedRating ?? 0) ? Icons.star : Icons.star_border,
-                  color: i <= (selectedRating ?? 0) ? Colors.orange : Colors.grey,
-                ),
-              ),
-          ],
-        ),
-        if (selectedRating != null)
-          Text(
-            '${selectedRating!.toInt()} Star${selectedRating! > 1 ? 's' : ''}',
-            style: TextStyle(color: Colors.black),
-          ),
-      ],
-    );
-  }
-
 
 
 
@@ -541,7 +526,6 @@ class _MovieListScreenState extends State<MovieListScreen> with SingleTickerProv
       bottomOpacity: 0.5,
     );
   }
-
 
 
   Drawer _buildDrawer() {
@@ -1304,31 +1288,45 @@ class Movie {
 
   factory Movie.fromCsv(List<dynamic> csvRow) {
     return Movie(
-      title: csvRow[2],
-      posterUrl: csvRow[10],
-      releaseDate: csvRow[4],
-      overview: csvRow[7],
-      rating: double.parse(csvRow[6]),
-      genre: csvRow[3],
-      language: csvRow[5],
+      title: csvRow[2].toString(),
+      posterUrl: csvRow[10].toString(),
+      releaseDate: csvRow[4].toString(),
+      overview: csvRow[8].toString(),
+      rating: double.tryParse(csvRow[6].toString()) ?? 0.0,
+      genre: csvRow[3].toString(),
+      language: csvRow[5].toString(),
     );
   }
 
-  int get releaseYear {
-    final parts = releaseDate.split('/');
-    return int.parse(parts[2]);
+  int? get releaseYear {
+    try {
+      final parts = releaseDate.split('/');
+      if (parts.length == 3) {
+        return int.parse(parts[2]);
+      } else if (releaseDate.length == 4) { // For cases where only the year is provided
+        return int.parse(releaseDate);
+      }
+    } catch (e) {
+      print('Error parsing release year: $e');
+    }
+    return null;
   }
 }
 
-
 Future<List<Movie>> loadMovies(String path) async {
-  final file = File(path);
-  final csvString = await file.readAsString();
-  final csvRows = const CsvToListConverter().convert(csvString);
-  return csvRows.map((row) => Movie.fromCsv(row)).toList();
+  final csvData = await rootBundle.loadString(path);
+  List<List<dynamic>> csvTable = CsvToListConverter().convert(csvData);
+
+  final movies = csvTable.skip(1).map<Movie>((row) {
+    return Movie.fromCsv(row);
+  }).toList();
+
+  for (var movie in movies.take(10)) {
+    print('Parsed movie: ${movie.title}, Genre: ${movie.genre}, Release Year: ${movie.releaseYear}, Language: ${movie.language}');
+  }
+
+  return movies;
 }
-
-
 
 class FilteredMoviesScreen extends StatelessWidget {
   final List<Movie> movies;
@@ -1341,45 +1339,86 @@ class FilteredMoviesScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Filtered Movies'),
       ),
-      body: GridView.builder(
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.7,
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: movies.isEmpty
+            ? Center(child: Text('No movies found'))
+            : GridView.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            childAspectRatio: 0.7,
+            mainAxisSpacing: 8.0,
+            crossAxisSpacing: 8.0,
+          ),
+          itemCount: movies.length,
+          itemBuilder: (context, index) {
+            final movie = movies[index];
+            return _buildMovieCard(context, movie);
+          },
         ),
-        itemCount: movies.length,
-        itemBuilder: (context, index) {
-          final movie = movies[index];
-          return GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MovieDetailsScreen(
-                    title: movie.title,
-                    posterUrl: movie.posterUrl,
-                    releaseDate: movie.releaseDate,
-                    overview: movie.overview,
-                    rating: movie.rating,
+      ),
+    );
+  }
+
+  Widget _buildMovieCard(BuildContext context, Movie movie) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MovieDetailsScreen(
+              title: movie.title,
+              posterUrl: movie.posterUrl,
+              releaseDate: movie.releaseDate,
+              overview: movie.overview,
+              rating: movie.rating,
+            ),
+          ),
+        );
+      },
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: movie.posterUrl != null && movie.posterUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                imageUrl: movie.posterUrl,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Center(child: CircularProgressIndicator()),
+                errorWidget: (context, url, error) => Container(
+                  color: Colors.black,
+                  child: Center(
+                    child: Icon(Icons.error, color: Colors.white),
                   ),
                 ),
-              );
-            },
-            child: Card(
-              child: Column(
-                children: [
-                  Image.network(movie.posterUrl, fit: BoxFit.cover),
-                  SizedBox(height: 8),
-                  Text(
-                    movie.title,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              )
+                  : Container(
+                color: Colors.black,
+                child: Center(
+                  child: Icon(Icons.movie, size: 50, color: Colors.white),
+                ),
               ),
             ),
-          );
-        },
+            SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: Text(
+                movie.title,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+
+
+
